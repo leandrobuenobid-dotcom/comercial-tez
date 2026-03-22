@@ -700,20 +700,40 @@ async function carregarDados() {
     if (result.success && result.data.length > 0) {
       LANCAMENTOS.length = 0;
       result.data.forEach(r => {
-        LANCAMENTOS.push({
-          _rowIndex: r._rowindex || r._rowIndex,
-          pedido: Number(r.pedido), nf: r.nf, cliente: r.cliente,
-          tipo: r.tipo, produto: r.produto,
-          qtd: Number(r.qtd), vUnit: Number(r.vunit), pag: r.pag,
-          cmp: Number(r.cmp), perda: Number(r.perda), clog: Number(r.clog),
-          com: Number(r.com), imp: Number(r.imp), cfin: Number(r.cfin),
-          mpPerda: Number(r.mpperda), custoProdU: Number(r.custoprodu),
-          vTotal: Number(r.vtotal), comR: Number(r.comr), impR: Number(r.impr),
-          cfinR: Number(r.cfinr), custoVarU: Number(r.custovaru),
-          custoTotP: Number(r.custototp), mc_r: Number(r.mc_r),
-          mc_p: Number(r.mc_p), meta: Number(r.meta), desvio: Number(r.desvio),
-          status: r.status, vazamento: r.vazamento || ''
-        });
+        // normalize keys — Sheets returns them lowercase
+          const k = {};
+          Object.keys(r).forEach(key => k[key.toLowerCase().trim()] = r[key]);
+          LANCAMENTOS.push({
+            _rowIndex: k._rowindex || 0,
+            pedido:     Number(k.pedido)       || 0,
+            nf:         String(k.nf            || '-'),
+            cliente:    String(k.cliente       || ''),
+            tipo:       String(k.tipo          || ''),
+            produto:    String(k.produto       || ''),
+            qtd:        Number(k.qtd)          || 0,
+            vUnit:      Number(k.vunit)        || 0,
+            pag:        String(k.pag           || ''),
+            cmp:        Number(k.cmp)          || 0,
+            perda:      Number(k.perda)        || 0,
+            clog:       Number(k.clog)         || 0,
+            com:        Number(k.com)          || 0,
+            imp:        Number(k.imp)          || 0,
+            cfin:       Number(k.cfin)         || 0,
+            mpPerda:    Number(k.mpperda)      || 0,
+            custoProdU: Number(k.custoprodu)   || 0,
+            vTotal:     Number(k.vtotal)       || 0,
+            comR:       Number(k.comr)         || 0,
+            impR:       Number(k.impr)         || 0,
+            cfinR:      Number(k.cfinr)        || 0,
+            custoVarU:  Number(k.custovaru)    || 0,
+            custoTotP:  Number(k.custototp)    || 0,
+            mc_r:       Number(k['mc_r'])      || 0,
+            mc_p:       Number(k['mc_p'])      || 0,
+            meta:       Number(k.meta)         || 0,
+            desvio:     Number(k.desvio)       || 0,
+            status:     String(k.status        || ''),
+            vazamento:  String(k.vazamento     || '')
+          });
       });
       mostrarToast('✓ Dados carregados do Google Sheets', 'green');
     } else {
