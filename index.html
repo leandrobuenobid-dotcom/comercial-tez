@@ -243,11 +243,15 @@ tbody tr:hover td{background:var(--surface2)}
     <div class="nav-item" onclick="nav('pagamentos',this)"><div class="nav-icon">⊟</div>Formas de Pag.</div>
   </div>
   <div class="sidebar-footer">
-    <div class="periodo-badge">
+    <div style="font-size:9px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;padding:0 2px">Mês Ativo</div>
+    <select id="mesSeletor" onchange="trocarMes(this.value)"
+      style="width:100%;padding:8px 10px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:12px;font-family:'Inter',sans-serif;background:var(--surface);color:var(--text);cursor:pointer;outline:none;font-weight:500">
+    </select>
+    <div class="periodo-badge" style="margin-top:8px">
       <div class="periodo-dot"></div>
       <div>
-        <div style="font-weight:600;font-size:11px;color:var(--text)">Fevereiro 2026</div>
-        <div style="font-size:10px;margin-top:1px">151 lançamentos</div>
+        <div style="font-weight:600;font-size:11px;color:var(--text)" id="mesLabel">Carregando...</div>
+        <div style="font-size:10px;margin-top:1px" id="mesTotal">— lançamentos</div>
       </div>
     </div>
   </div>
@@ -726,6 +730,7 @@ function entrar() {
   if (senha === '4321') {
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('app').style.display = 'flex';
+    carregarMeses();
     carregarDados();
   } else {
     const erro = document.getElementById('loginErro');
@@ -825,22 +830,63 @@ async function carregarDados() {
 }
 
 function atualizarLabelMes() {
-  const label = getMesLabel();
   const total = LANCAMENTOS.length;
-  // Sidebar footer
-  const dot = document.querySelector('.periodo-badge');
-  if (dot) dot.innerHTML = `
-    <div class="periodo-dot"></div>
-    <div>
-      <div style="font-weight:600;font-size:11px;color:var(--text)">${label}</div>
-      <div style="font-size:10px;margin-top:1px">${total} lançamentos</div>
-    </div>`;
-  // Topbar subtitle
+  const idx   = MESES_PT.indexOf(MES_ATIVO.slice(0,3));
+  const label = idx >= 0 ? MESES_FULL[idx] + ' ' + MES_ATIVO.slice(3) : MES_ATIVO;
+
+  const el = document.getElementById('mesLabel');
+  if (el) el.textContent = label;
+  const et = document.getElementById('mesTotal');
+  if (et) et.textContent = total + ' lançamentos';
+
   const sub = document.getElementById('lancSubtitle');
   if (sub) sub.textContent = `${label} · Análise produto a produto com todos os custos`;
-  // Dashboard subtitle
   const dbsub = document.querySelector('#page-dashboard .topbar-left p');
   if (dbsub) dbsub.textContent = `${label} · Tez Revestimentos`;
+}
+
+async function carregarMeses() {
+  try {
+    const result = await sheetsGet('getMeses', '');
+    const sel = document.getElementById('mesSeletor');
+    if (!sel) return;
+    sel.innerHTML = '';
+    const meses = (result.meses || [getMesAtual()]).sort((a,b) => {
+      // sort by year then month index
+      const ai = MESES_PT.indexOf(a.slice(0,3)) + parseInt(a.slice(3))*12;
+      const bi = MESES_PT.indexOf(b.slice(0,3)) + parseInt(b.slice(3))*12;
+      return bi - ai; // most recent first
+    });
+    // Always ensure current month is in the list
+    if (!meses.includes(getMesAtual())) meses.unshift(getMesAtual());
+    meses.forEach(m => {
+      const idx = MESES_PT.indexOf(m.slice(0,3));
+      const label = idx >= 0 ? MESES_FULL[idx] + ' ' + m.slice(3) : m;
+      const opt = document.createElement('option');
+      opt.value = m;
+      opt.textContent = label;
+      if (m === MES_ATIVO) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  } catch(e) {
+    // fallback: just show current month
+    const sel = document.getElementById('mesSeletor');
+    if (!sel) return;
+    sel.innerHTML = '';
+    const m = getMesAtual();
+    const idx = MESES_PT.indexOf(m.slice(0,3));
+    const opt = document.createElement('option');
+    opt.value = m;
+    opt.textContent = idx >= 0 ? MESES_FULL[idx] + ' ' + m.slice(3) : m;
+    opt.selected = true;
+    sel.appendChild(opt);
+  }
+}
+
+async function trocarMes(novoMes) {
+  if (novoMes === MES_ATIVO) return;
+  MES_ATIVO = novoMes;
+  await carregarDados();
 }
 
 function mostrarLoading(show) {
