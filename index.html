@@ -738,16 +738,32 @@ function entrar() {
 
 // ======= GOOGLE SHEETS INTEGRATION =======
 const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbyEJ116MQP36QhaLYQFqRu0tkY9xnv3ASWMDvXGcnljZ-9Ia-CZPxxYDnRqBehc_7yP/exec';
+const MESES_PT  = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+const MESES_FULL = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
-async function sheetsGet(action) {
-  const res = await fetch(`${SHEETS_URL}?action=${action}`);
+function getMesAtual() {
+  const d = new Date();
+  return MESES_PT[d.getMonth()] + d.getFullYear();
+}
+
+function getMesLabel() {
+  const d = new Date();
+  return MESES_FULL[d.getMonth()] + ' ' + d.getFullYear();
+}
+
+let MES_ATIVO = getMesAtual();
+
+async function sheetsGet(action, mes) {
+  const m = mes || MES_ATIVO;
+  const res = await fetch(`${SHEETS_URL}?action=${action}&mes=${m}`);
   return res.json();
 }
 
-async function sheetsPost(action, data) {
+async function sheetsPost(action, data, mes) {
+  const m = mes || MES_ATIVO;
   const res = await fetch(SHEETS_URL, {
     method: 'POST',
-    body: JSON.stringify({ action, data })
+    body: JSON.stringify({ action, data, mes: m })
   });
   return res.json();
 }
@@ -755,11 +771,11 @@ async function sheetsPost(action, data) {
 async function carregarDados() {
   mostrarLoading(true);
   try {
-    const result = await sheetsGet('getLancamentos');
-    if (result.success && result.data.length > 0) {
+    const result = await sheetsGet('getLancamentos', MES_ATIVO);
+    if (result.success) {
       LANCAMENTOS.length = 0;
-      result.data.forEach(r => {
-        // normalize keys — Sheets returns them lowercase
+      if (result.data && result.data.length > 0) {
+        result.data.forEach(r => {
           const k = {};
           Object.keys(r).forEach(key => k[key.toLowerCase().trim()] = r[key]);
           LANCAMENTOS.push({
@@ -793,16 +809,38 @@ async function carregarDados() {
             status:     String(k.status        || ''),
             vazamento:  String(k.vazamento     || '')
           });
-      });
-      mostrarToast('✓ Dados carregados do Google Sheets', 'green');
-    } else {
-      mostrarToast('Planilha vazia — exibindo dados de exemplo', 'amber');
+        });
+        mostrarToast(`✓ ${result.data.length} lançamentos carregados — ${getMesLabel()}`, 'green');
+      } else {
+        mostrarToast(`Nenhum lançamento em ${getMesLabel()} ainda`, 'amber');
+      }
+      // Atualizar labels do mês na interface
+      atualizarLabelMes();
     }
   } catch(e) {
     mostrarToast('Erro ao conectar ao Sheets — exibindo dados locais', 'red');
   }
   mostrarLoading(false);
   renderLancamentos();
+}
+
+function atualizarLabelMes() {
+  const label = getMesLabel();
+  const total = LANCAMENTOS.length;
+  // Sidebar footer
+  const dot = document.querySelector('.periodo-badge');
+  if (dot) dot.innerHTML = `
+    <div class="periodo-dot"></div>
+    <div>
+      <div style="font-weight:600;font-size:11px;color:var(--text)">${label}</div>
+      <div style="font-size:10px;margin-top:1px">${total} lançamentos</div>
+    </div>`;
+  // Topbar subtitle
+  const sub = document.getElementById('lancSubtitle');
+  if (sub) sub.textContent = `${label} · Análise produto a produto com todos os custos`;
+  // Dashboard subtitle
+  const dbsub = document.querySelector('#page-dashboard .topbar-left p');
+  if (dbsub) dbsub.textContent = `${label} · Tez Revestimentos`;
 }
 
 function mostrarLoading(show) {
@@ -1019,7 +1057,7 @@ async function salvarLancamento(){
     custototp: custoTotP, mc_r, mc_p, meta, desvio, status, vazamento: mc_p<0?'VAZAMENTO':''
   };
   try {
-    const result = await sheetsPost('saveLancamento', data);
+    const result = await sheetsPost('saveLancamento', data, MES_ATIVO);
     if (result.success) {
       mostrarToast('✓ Lançamento salvo no Google Sheets!', 'green');
       await carregarDados();
@@ -1216,7 +1254,7 @@ function salvarEdicao() {
     mc_r: r.mc_r, mc_p: r.mc_p, meta: r.meta, desvio: r.desvio,
     status: r.status, vazamento: r.vazamento
   };
-  sheetsPost('updateLancamento', data)
+  sheetsPost('updateLancamento', data, MES_ATIVO)
     .then(res => {
       if (res.success) mostrarToast('✓ Lançamento atualizado no Sheets!', 'green');
       else mostrarToast('Erro ao atualizar: '+res.error, 'red');
