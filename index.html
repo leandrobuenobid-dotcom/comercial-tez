@@ -1453,6 +1453,8 @@ async function excluirLancamento(idx) {
     mostrarToast('Erro de conexão ao excluir', 'red');
   }
 }
+
+function renderCanalCharts(){
   setTimeout(()=>{
     dc('canalfat');
     charts['canalfat']=new Chart(document.getElementById('chartCanalFat'),{
